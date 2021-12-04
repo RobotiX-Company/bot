@@ -68,7 +68,7 @@ def textMessage(message):
     print("Detected intent:", response.query_result.intent.display_name)
     print("Detected intent confidence:", response.query_result.intent_detection_confidence)
     if response.query_result.fulfillment_text == "":
-        return "Я не понял"
+        return "Сформулируй иначе"
     return response.query_result.fulfillment_text
 
 
@@ -205,7 +205,7 @@ def application_check(message):
 
 # Анкета:
 def fio(message):
-    if not message.text.isalpha():
+    if re.match('[а-яА-Я ]{' + str(len(message.text)) + ',' + str(len(message.text)) + '}', message.text) is None:
         msg = bot.send_message(message.chat.id, 'Введите корректное ФИО')
         bot.register_next_step_handler(msg, fio)
         return
@@ -223,6 +223,10 @@ def fio(message):
 
 
 def email(message):
+    if re.match('\w*@\w*.\w*', message.text) is None:
+        msg = bot.send_message(message.chat.id, 'Введите корректный email')
+        bot.register_next_step_handler(msg, email)
+        return
     file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
     file.write("Почта: " + str(message.text) + '\n')
     msg = bot.send_message(message.chat.id, 'Теперь укажите Вашу дату рождения:')
@@ -296,7 +300,7 @@ def social_network(message):
         os.mkdir("users/" + str(message.chat.id) + '/contract')
         os.mkdir("users/" + str(message.chat.id) + '/video')
     file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Социальная сеть: " + str(message.text) + '\n')
+    file.write("Введите социальная сеть: " + str(message.text) + '\n')
     msg = bot.send_message(message.chat.id, 'Где ты живёшь (край/область, населённый пункт)?')
     bot.register_next_step_handler(msg, where_live)
 
