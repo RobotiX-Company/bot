@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "wisewolfbot-elfd",
+  "private_key_id": "91c71082c820cbf763db3290e51e514574c98a29",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCl3RpGhECsfQSF\naSOwYtRCTLwDV2csjhh6QEkqnZC31BGwmqL73Rpm4gzG25J8bShwoOnnpiW4yT0Z\n1V/+8SSaqZJXs2QGsrxH1pHDXB520kwLGkxCSovWxO4kCwVaGmd9jtu1H2O+OQzX\n0LlKtkue33FEYy3KD2l2NI0ml/cdtHSknZgXgbnkXqkDVgsQ+HREM1rZ31Yl0iuo\n5/veot++HjnpvCHYs+TiQhu1j6SnA+Pj94aHDM3UvXgheTlrSzSDm1nVldi0gpcV\n6m7c9KyRuq8kimHnQP3crGVp3KOe8Duru5vE0omXVUUkJ1hGnTUKJktUxCfFhw7v\nOGMYuUZdAgMBAAECggEAFgRdFgo9OYhY3sq/mYzs5yYfeQQTpobwOd4puDX1PWmx\ntXM5elx1wj10e7su3URyL00073KPJFHWQgUgeouRE9S5n9mox/jW5GRXsgqa4qP0\nwy6I++3AVVCL2g36dmT14uVhRdA2YcxZ55YF2qSLMjov42eU7vMPyUidigd3HqKc\na3/oGVA9eHo+JfA037wx2qYHkMRHo6csHzJZj22NxsyhdzXIAaKoDyA+jEKanspk\nDrJmc31s/8YC2uKXnT5p3VoKVxA4B1i5hMJGEIg0R4OTEBpdodaORZ0PXpxEcYKp\n61XPR7g/sq06l1sw4UvQzSBSgzEkNTHu1nyDB206YQKBgQDXwXkLmgWtienUezUi\nc7NfGtEmcinNJ6aq9IfWq6nIJ9x0H5OUNezjD+08Yb6P63O5lMDswvvWOYtjokjo\nmG7Loj2R5JCjUOEccJZRN5dxJCc8Vqp/fUikj1xAOSOPfvy2yt9C6ZdutvMze6zq\nvPRbvwDzRDD+ZEt6W1h/Otr68QKBgQDEzT1PBoQaVud1lI0O7hMGVccS96QaN4sa\nWMFom6+BA28JyQ/17XGLonHln+kRRzGe8NASnGrDks8CpwULGe0iv3+pGVVk9LpO\nAW0p0dmREZ73g8AF1okRRkUvKTrSEVoxHU/M6l7F3TjKLW+MM3ZR306ce2er6HIQ\nPzPu38nKLQKBgGc7/a0db2YPvUCcC1qGvebdsAGTUokFVewqwOxoiv5ohEVT7otW\nGhizQDJKGqJGaML9eCpRSarBMf7kYbpZZXouEQPDt6lNQ8kV3fbSgLX0NIncdgw2\naBHFPsDEFk3M1yKng5hCqOCizU9u99gBvXJAvDWqBT9TwgGzv25xPOIhAoGAWfFz\nE6rmtSMCpbo+vZQRHdQWJ5UGavT3nhLyUdzVWSE4nkBGCx95xVd4tnlfC4Z+JyXn\n8pmKMdfmxE+Q/oHa3wamUaJCZOF0RDJisbo2tRZYkMal/AUQn9R9yhAN0fQcRFYh\nIoX6ynNQgRZC5NCgQsrMIrhDqU2S09oO4h1lHAECgYEAmFgnjLU4HUV0Zl3gQBZe\nzWLifJGOtJExkDJazCrVgKFDUkGjfqOaVjXdoWCX3jrbdOohRbjKy5VmBTM2BBnW\nDs0lu7ktNizPfKtU9hGU9jEgt04NPcBYTGZ7g23hhGTI45jplgQ31J5vyyBG8qer\nVc+NfygjXqt3i9EVS/zzULc=\n-----END PRIVATE KEY-----\n",
+  "client_email": "wisewolfbot@wisewolfbot-elfd.iam.gserviceaccount.com",
+  "client_id": "117980587686624243023",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/wisewolfbot%40wisewolfbot-elfd.iam.gserviceaccount.com"
+}
