@@ -221,7 +221,6 @@ def fio(message):
         msg = bot.send_message(message.chat.id, 'Укажите Вашу электронную почту:')
         bot.register_next_step_handler(msg, email)
 
-
 def email(message):
     if re.match('\w*@\w*.\w*', message.text) is None:
         msg = bot.send_message(message.chat.id, 'Введите корректный email')
