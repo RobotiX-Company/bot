@@ -1,6 +1,8 @@
 # Импортируем библиотеки:
 import os
+import shutil
 import re
+import time
 
 import telebot
 from telebot import types
@@ -8,10 +10,9 @@ from telebot import types
 from google.cloud import dialogflow
 from google.api_core.exceptions import InvalidArgument
 
-import time
-
 # Токен Бота:
 bot = telebot.TeleBot('5071288099:AAHV62fPQgGAvrXaXcZKUT3tD4u6HEmzN6I')
+FeedbackID = '988304573'
 
 # Клавиатуры:
 
@@ -20,8 +21,8 @@ keyboard.row('Стать волонтёром', 'Оставить коммент
 keyboard.add('Связь с разработчиками')
 
 markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-markup.row('Заполнить анкету', 'Перейти к курсу')
-markup.add('Я прошёл курс', 'Главное меню')
+markup.row('Заполнить анкету', 'Я прошёл курс обучения')  # 'Перейти к курсу'
+markup.add('Главное меню')
 
 application = types.ReplyKeyboardMarkup(resize_keyboard=True)
 application.row('Оформить заявку', 'Я оформил заявку')
@@ -46,6 +47,14 @@ yesNoKeyboard.add('Главное меню')
 contractKeyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 contractKeyboard.add('Загрузить скан договора', 'Главное меню')
 
+kordons = types.ReplyKeyboardMarkup(resize_keyboard=True)
+kordons.row('"Озёрный" кордон', 'Кордон "Травяной"')
+kordons.add('Кордон "Долина Гейзеров"', 'Кордон "Узон"')
+kordons.add('Кордон "Исток и Аэродром"', 'Кордон "Кроноки и Семячик"')
+
+processingKeyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+processingKeyboard.row('Я согласен', 'Я не согласен')
+
 
 # Интеграция с DialogFlow:
 def textMessage(message):
@@ -68,7 +77,7 @@ def textMessage(message):
     print("Detected intent:", response.query_result.intent.display_name)
     print("Detected intent confidence:", response.query_result.intent_detection_confidence)
     if response.query_result.fulfillment_text == "":
-        return "Сформулируй иначе"
+        return "Прости, я не понял тебя. Я ещё учусь, и могу не распознать некорорые фразы. Попробуй сформулировать мысль иначе."
     return response.query_result.fulfillment_text
 
 
@@ -82,32 +91,22 @@ def keyboard_commands(message):
         bot.register_next_step_handler(msg, keyboard_commands)
 
     elif message.text == "Стать волонтёром":
-        bot.send_message(message.chat.id,
-                         'Для постановки в график прохождения волонтерских работ на территории Кроноцкого государственного заповедника/Южно-Камчатского федерального заказника Вам необходимо:')
-        time.sleep(1)
-        bot.send_message(message.chat.id,
-                         'Заполнить анкету на прохождение обучения в Школе Защитников Природы')
-        time.sleep(1)
         msg = bot.send_message(message.chat.id,
-                               'Пройти курс, по окончании которого у Вас будет итоговый тест, в случае успешного результата Вас перенаправят в отдел познавательного туризма',
-                               reply_markup=markup)
-        bot.register_next_step_handler(msg, keyboard_commands)
-
+                               'Продолжая, Вы принимаете соглашение на обработку персональных данных. Без него ваши данные не могут быть сохранены, это также касается фото и видео. Вы согласны?',
+                               reply_markup=processingKeyboard)
+        bot.register_next_step_handler(msg, data_processing)
     elif message.text == "Заполнить анкету":
+        bot.send_message(message.chat.id, 'Начинаю тестирование:')
         msg = bot.send_message(message.chat.id, 'Укажите Ваше ФИО в именительном падеже',
-                               reply_markup=keyboard)
+                               reply_markup=types.ReplyKeyboardRemove())
         bot.register_next_step_handler(msg, fio)
-        # msg = bot.send_message(message.chat.id, 'Заполнить анкету ты можешь по ссылке:
-        # https://docs.google.com/forms/d/1idhdo4KswngdMijyXZWx_TXGWqJuKn7ySRzjeR0UnsI/edit)', reply_markup=markup)
-        # bot.register_next_step_handler(msg, keyboard_commands)
-
     elif message.text == "Перейти к курсу":
         msg = bot.send_message(message.chat.id,
                                'Перейти к курсу: https://kronoki.ru/ru/volunteerism/request',
                                reply_markup=markup)
         bot.register_next_step_handler(msg, keyboard_commands)
 
-    elif message.text == "Я прошёл курс":
+    elif message.text == "Я прошёл курс обучения":
         msg = bot.send_message(message.chat.id,
                                'Отлично! Теперь выберите, оформляли ли Вы заявку:',
                                reply_markup=application)
@@ -119,24 +118,55 @@ def keyboard_commands(message):
                                reply_markup=keyboard)
         bot.register_next_step_handler(msg, video_check)
 
+    elif message.text == 'Оставить комментарий':
+        msg = bot.send_message(message.chat.id, 'Напишите комментарий:')
+        bot.register_next_step_handler(msg, save_comment)
+
     elif message.text == 'Главное меню':
         msg = bot.send_message(message.chat.id,
-                               "Главное меню",
+                               'Главное меню',
                                reply_markup=keyboard)
         bot.register_next_step_handler(msg, keyboard_commands)
+
+    elif message.text == 'Связь с разработчиками':
+        msg = bot.send_message(message.chat.id,
+                               '''Теперь напишите текст Вашего сообщения (отзыв, ошибка, вопрос или предложение).
+Ваше сообщение будет доставлено разработчикам.''',
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, feedback)
 
     else:
         bot.send_message(message.chat.id, textMessage(message))
 
 
+def save_comment(message):
+    if not os.path.isdir("users/" + str(message.chat.id)):
+        os.mkdir("users/" + str(message.chat.id))
+        os.mkdir("users/" + str(message.chat.id) + '/recommendation')
+        os.mkdir("users/" + str(message.chat.id) + '/insurance')
+        os.mkdir("users/" + str(message.chat.id) + '/contract')
+        os.mkdir("users/" + str(message.chat.id) + '/video')
+    file = open("users/" + str(message.chat.id) + '/Комментарий.txt', 'w')
+    file.write(message.text)
+    msg = bot.send_message(message.chat.id, 'Комментарий успешно сохранён. Спасибо!', reply_markup=keyboard)
+    bot.register_next_step_handler(msg, keyboard_commands)
+
+
+def feedback(message):
+    bot.send_message(FeedbackID,
+                     f'''Обратная связь от {message.from_user.first_name} {message.from_user.last_name}, id: {message.from_user.id}: \n
+{message.text}''')
+    msg = bot.send_message(message.chat.id,
+                           '''Спасибо! Ваше сообщение доставлено разработчикам.''',
+                           reply_markup=keyboard)
+    bot.register_next_step_handler(msg, keyboard_commands)
+
+
 def application_check(message):
     if message.text == 'Оформить заявку':
-        msg = bot.send_message(message.chat.id, 'Ссылка на страницу в любимой соцсети')
-        bot.register_next_step_handler(msg, social_network)
-        # msg = bot.send_message(message.chat.id, 'Оформить заявку можно по ссылке:
-        # https://docs.google.com/forms/d/e/1FAIpQLSe1gyTpb69_1pNQPa3bFChFebvAfFMMDyBSWL9cUeRJqLSBWQ/viewform',
-        # reply_markup=application)
-        bot.register_next_step_handler(msg, application_check)
+        msg = bot.send_message(message.chat.id, 'Укажите Ваше ФИО в именительном падеже',
+                               reply_markup=types.ReplyKeyboardRemove())
+        bot.register_next_step_handler(msg, fio_z)
 
     elif message.text == 'Я оформил заявку':
         msg = bot.send_message(message.chat.id,
@@ -192,9 +222,20 @@ def application_check(message):
     else:
         try:
             if message.text.lower() == "да" or message.text.lower() == "нет":
+                if not os.path.isdir("users/" + str(message.chat.id)):
+                    os.mkdir("users/" + str(message.chat.id))
+                    os.mkdir("users/" + str(message.chat.id) + '/recommendation')
+                    os.mkdir("users/" + str(message.chat.id) + '/insurance')
+                    os.mkdir("users/" + str(message.chat.id) + '/contract')
+                    os.mkdir("users/" + str(message.chat.id) + '/video')
+                file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+                file.write("Есть волонтёрская книжка? " + message.text)
                 bot.send_message(message.chat.id, "Пора переходить к следующему шагу:")
                 msg = bot.send_message(message.chat.id,
-                                       'При наличии, просьба предоставить справки о прохождении медицинской комиссии, если проходили в течение последнего года, или предоставить расписку о состоянии здоровья (ограничения, хронические заболевания) \nПредоставить туристическую страховку',
+                                       'При наличии, просьба предоставить справки о прохождении медицинской комиссии, '
+                                       'если проходили в течение последнего года, или предоставить расписку о '
+                                       'состоянии здоровья (ограничения, хронические заболевания) \nПредоставить '
+                                       'туристическую страховку',
                                        reply_markup=insuranceKeyboard)
                 bot.register_next_step_handler(msg, application_check)
             else:
@@ -203,12 +244,287 @@ def application_check(message):
             print(e)
 
 
+# Соглашение на обработку персональных данных:
+def data_processing(message):
+    if message.text == 'Я согласен':
+        bot.send_message(message.chat.id,
+                         'Для постановки в график прохождения волонтерских работ на территории Кроноцкого государственного заповедника/Южно-Камчатского федерального заказника Вам необходимо:')
+        time.sleep(1)
+        bot.send_message(message.chat.id,
+                         'Заполнить анкету на прохождение обучения в Школе Защитников Природы')
+        time.sleep(1)
+        msg = bot.send_message(message.chat.id,
+                               'Пройти курс, по окончании которого у Вас будет итоговый тест, в случае успешного результата Вас перенаправят в отдел познавательного туризма',
+                               reply_markup=markup)
+        bot.register_next_step_handler(msg, keyboard_commands)
+    elif message.text == 'Я не согласен':
+        if os.path.isdir("users/" + str(message.chat.id)):
+            shutil.rmtree("users/" + str(message.chat.id))
+        msg = bot.send_message(message.chat.id, 'Тогда заполнить анкету для прохождения курса Вы можете по ссылке: '
+                                                'https://docs.google.com/forms/d/e/1FAIpQLSe1gyTpb69_1pNQPa3bFChFebvAfFMMDyBSWL9cUeRJqLSBWQ/viewform, '
+                                                'а заявку на участие в волонтёрских работах в заповеднике по ссылке: '
+                                                'https://docs.google.com/forms/d/e/1FAIpQLSe1gyTpb69_1pNQPa3bFChFebvAfFMMDyBSWL9cUeRJqLSBWQ/closedform',
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+
 # Анкета:
 def fio(message):
-    if re.match('[а-яА-Я ]{' + str(len(message.text)) + ',' + str(len(message.text)) + '}', message.text) is None:
-        msg = bot.send_message(message.chat.id, 'Введите корректное ФИО')
-        bot.register_next_step_handler(msg, fio)
-        return
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        if re.match('[а-яА-Я ]{' + str(len(message.text)) + ',' + str(len(message.text)) + '}', message.text) is None:
+            msg = bot.send_message(message.chat.id, 'Введите корректное ФИО')
+            bot.register_next_step_handler(msg, fio)
+            return
+        else:
+            if not os.path.isdir("users/" + str(message.chat.id)):
+                os.mkdir("users/" + str(message.chat.id))
+                os.mkdir("users/" + str(message.chat.id) + '/recommendation')
+                os.mkdir("users/" + str(message.chat.id) + '/insurance')
+                os.mkdir("users/" + str(message.chat.id) + '/contract')
+                os.mkdir("users/" + str(message.chat.id) + '/video')
+            file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+            file.write("ФИО: " + str(message.text) + '\n')
+            msg = bot.send_message(message.chat.id, 'Укажите Вашу электронную почту:')
+            bot.register_next_step_handler(msg, email)
+
+
+def email(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        if re.match('\w*@\w*\.\w*', message.text) is None:
+            msg = bot.send_message(message.chat.id, 'Введите корректный email')
+            bot.register_next_step_handler(msg, email)
+            return
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Почта: " + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Теперь укажите Вашу дату рождения:')
+        bot.register_next_step_handler(msg, phone)
+
+
+def phone(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        if re.match('\d{2}\.\d{2}\.\d{4}', message.text) is None:
+            msg = bot.send_message(message.chat.id, 'Введите корректную дату')
+            bot.register_next_step_handler(msg, phone)
+            return
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Дата рождения: " + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Ваш номер телефона?')
+        bot.register_next_step_handler(msg, education)
+
+
+def education(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        if re.match('\d{11,11}', message.text) is None:
+            msg = bot.send_message(message.chat.id, 'Введите корректный телефонный номер')
+            bot.register_next_step_handler(msg, education)
+            return
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Телефон: " + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Ваше образование?')
+        bot.register_next_step_handler(msg, territory)
+
+
+def territory(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        if re.match('[\w\s\- .,]{' + str(len(message.text)) + '}', message.text) is None:
+            msg = bot.send_message(message.chat.id, 'Введите корректные данные об образовании')
+            bot.register_next_step_handler(msg, territory)
+            return
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Образование: " + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Желаемая территория для осуществления волонтёрских работ?',
+                               reply_markup=kordons)
+        bot.register_next_step_handler(msg, data)
+
+
+def data(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        if message.text not in ['"Озёрный" кордон', 'Кордон "Травяной"', 'Кордон "Долина Гейзеров"', 'Кордон "Узон"',
+                                'Кордон "Исток и Аэродром"', 'Кордон "Кроноки и Семячик"']:
+            msg = bot.send_message(message.chat.id, 'Выберите кнопку')
+            bot.register_next_step_handler(msg, data)
+            return
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Где хотели бы осуществлять волонтёрские работы: " + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Планируемые даты заезда и выезда?',
+                               reply_markup=types.ReplyKeyboardRemove())
+        bot.register_next_step_handler(msg, language)
+
+
+def language(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        if re.match('[\w\s\- .,]{' + str(len(message.text)) + '}', message.text) is None:
+            msg = bot.send_message(message.chat.id, 'Введите корректные данные о датах заезда и выезда')
+            bot.register_next_step_handler(msg, territory)
+            return
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Планируемые даты заезда и выезда" + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Владеете ли Вы какими-либо языками? Если да, то какими?')
+        bot.register_next_step_handler(msg, experience)
+
+
+def experience(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        if re.match('[\w\s\- .,]{' + str(len(message.text)) + '}', message.text) is None:
+            msg = bot.send_message(message.chat.id, 'Введите корректные данные о языках')
+            bot.register_next_step_handler(msg, territory)
+            return
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Языки" + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Имеете ли Вы опыт волонтёрских работ?')
+        bot.register_next_step_handler(msg, about)
+
+
+def about(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        if re.match('[\w\s\- .,]{' + str(len(message.text)) + '}', message.text) is None:
+            msg = bot.send_message(message.chat.id, 'Введите корректные данные о вашем опыте')
+            bot.register_next_step_handler(msg, territory)
+            return
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Опыт волонтёрских работ" + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Почему ты хочешь стать волонтёром? Коротко напиши о себе')
+        bot.register_next_step_handler(msg, written_down)
+
+
+def written_down(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("О себе" + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Успешно записано!',
+                               reply_markup=application)
+        bot.register_next_step_handler(msg, application_check)
+
+
+# Заява на участие:
+def fio_z(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        if re.match('[а-яА-Я ]{' + str(len(message.text)) + ',' + str(len(message.text)) + '}', message.text) is None:
+            msg = bot.send_message(message.chat.id, 'Введите корректное ФИО')
+            bot.register_next_step_handler(msg, fio_z)
+            return
+        else:
+            if not os.path.isdir("users/" + str(message.chat.id)):
+                os.mkdir("users/" + str(message.chat.id))
+                os.mkdir("users/" + str(message.chat.id) + '/recommendation')
+                os.mkdir("users/" + str(message.chat.id) + '/insurance')
+                os.mkdir("users/" + str(message.chat.id) + '/contract')
+                os.mkdir("users/" + str(message.chat.id) + '/video')
+            file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'w')
+            file.write("ФИО: " + str(message.text) + '\n')
+            msg = bot.send_message(message.chat.id, 'Укажите Вашу электронную почту:')
+            bot.register_next_step_handler(msg, email_z)
+
+
+def email_z(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        if re.match('\w*@\w*\.\w*', message.text) is None:
+            msg = bot.send_message(message.chat.id, 'Введите корректный email')
+            bot.register_next_step_handler(msg, email_z)
+            return
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Почта: " + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Теперь укажите Вашу дату рождения:')
+        bot.register_next_step_handler(msg, phone_z)
+
+
+def phone_z(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        if re.match('\d{2}\.\d{2}\.\d{4}', message.text) is None:
+            msg = bot.send_message(message.chat.id, 'Введите корректную дату')
+            bot.register_next_step_handler(msg, phone_z)
+            return
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Дата рождения: " + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Ссылка на страницу в любимой соцсети')
+        bot.register_next_step_handler(msg, social_network)
+
+
+def social_network(message):
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
     else:
         if not os.path.isdir("users/" + str(message.chat.id)):
             os.mkdir("users/" + str(message.chat.id))
@@ -216,120 +532,70 @@ def fio(message):
             os.mkdir("users/" + str(message.chat.id) + '/insurance')
             os.mkdir("users/" + str(message.chat.id) + '/contract')
             os.mkdir("users/" + str(message.chat.id) + '/video')
-        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'w')
-        file.write("ФИО: " + str(message.text) + '\n')
-        msg = bot.send_message(message.chat.id, 'Укажите Вашу электронную почту:')
-        bot.register_next_step_handler(msg, email)
-
-def email(message):
-    if re.match('\w*@\w*.\w*', message.text) is None:
-        msg = bot.send_message(message.chat.id, 'Введите корректный email')
-        bot.register_next_step_handler(msg, email)
-        return
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Почта: " + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Теперь укажите Вашу дату рождения:')
-    bot.register_next_step_handler(msg, phone)
-
-
-def phone(message):
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Дата рождения: " + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Ваш номер телефона?')
-    bot.register_next_step_handler(msg, education)
-
-
-def education(message):
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Телефон: " + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Ваше образование?')
-    bot.register_next_step_handler(msg, territory)
-
-
-def territory(message):
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Образование: " + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Желаемая территория для осуществления волонтёрских работ?')
-    bot.register_next_step_handler(msg, data)
-
-
-def data(message):
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Где хотели бы осуществлять волонтёрские работы: " + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Планируемые даты заезда и выезда?')
-    bot.register_next_step_handler(msg, language)
-
-
-def language(message):
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Планируемые даты заезда и выезда" + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Владеете ли Вы какими-либо языками? Если да, то какими?')
-    bot.register_next_step_handler(msg, experience)
-
-
-def experience(message):
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Языки" + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Имеете ли Вы опыт волонтёрских работ?')
-    bot.register_next_step_handler(msg, about)
-
-
-def about(message):
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Опыт волонтёрских работ" + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Почему ты хочешь стать волонтёром? Коротко напиши о себе')
-    bot.register_next_step_handler(msg, written_down)
-
-
-def written_down(message):
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("О себе" + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Успешно записано!',
-                               reply_markup=application)
-    bot.register_next_step_handler(msg, application_check)
-
-
-# Заява на участие:
-
-def social_network(message):
-    if not os.path.isdir("users/" + str(message.chat.id)):
-        os.mkdir("users/" + str(message.chat.id))
-        os.mkdir("users/" + str(message.chat.id) + '/recommendation')
-        os.mkdir("users/" + str(message.chat.id) + '/insurance')
-        os.mkdir("users/" + str(message.chat.id) + '/contract')
-        os.mkdir("users/" + str(message.chat.id) + '/video')
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Введите социальная сеть: " + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Где ты живёшь (край/область, населённый пункт)?')
-    bot.register_next_step_handler(msg, where_live)
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Введите социальная сеть: " + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Где ты живёшь (край/область, населённый пункт)?')
+        bot.register_next_step_handler(msg, where_live)
 
 
 def where_live(message):
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Населённый пункт: " + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Чем ты занимаешься (сфера деятельности, профессия, направление учёбы)?')
-    bot.register_next_step_handler(msg, hobby)
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Населённый пункт: " + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id,
+                               'Чем ты занимаешься (сфера деятельности, профессия, направление учёбы)?')
+        bot.register_next_step_handler(msg, hobby)
 
 
 def hobby(message):
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Чем занимаюсь: " + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Опиши свой походный опыт')
-    bot.register_next_step_handler(msg, hikin_experience)
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Чем занимаюсь: " + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Опиши свой походный опыт')
+        bot.register_next_step_handler(msg, hikin_experience)
 
 
 def hikin_experience(message):
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Походный опыт: " + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Какую самую дальнюю точку РФ ты посетил?')
-    bot.register_next_step_handler(msg, distant_plase)
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Походный опыт: " + str(message.text) + '\n')
+        msg = bot.send_message(message.chat.id, 'Какую самую дальнюю точку РФ ты посетил?')
+        bot.register_next_step_handler(msg, distant_plase)
 
 
 def distant_plase(message):
-    file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
-    file.write("Самая дальняя точка РФ: " + str(message.text) + '\n')
-    msg = bot.send_message(message.chat.id, 'Успешно записано!')
-    bot.register_next_step_handler(msg, application_check)
+    if message.text == 'Главное меню':
+        msg = bot.send_message(message.chat.id,
+                               "Главное меню",
+                               reply_markup=keyboard)
+        bot.register_next_step_handler(msg, keyboard_commands)
+
+    else:
+        file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
+        file.write("Самая дальняя точка РФ: " + str(message.text) + '\n')
+        bot.send_message(message.chat.id, 'Успешно записано!')
+        msg = bot.send_message(message.chat.id,
+                               '''Заявок всегда в десятки раз больше, чем мест. Мы тщательно отбираем волонтеров, учитываем их образование, профессию, наличие рекомендаций от других заповедников и личные качества. Дистанционно выбрать подходящего человека бывает сложно, поэтому мы рады, когда вы сопровождаете заявки короткими видео о себе (на 1-2 минуты)''',
+                               reply_markup=videoKeyboard)
+        bot.register_next_step_handler(msg, application_check)
 
 
 # Кинуть ссылку на видео:
@@ -417,16 +683,13 @@ def insurance_check(message):
         with open(src, 'wb') as new_file:
             new_file.write(downloaded_file)
 
-        bot.reply_to(message, "Успешно сохранено!")
-        bot.send_message(message.chat.id, "И последний шаг - договор. Высылаем его ниже:")
-        msg = bot.send_message(message.chat.id, 'Внимательно изучив все пункты договора и его приложений, '
-                                                'Вы высылаете нам скан-копию подписанного документа',
-                               reply_markup=contractKeyboard)
+        msg = bot.reply_to(message, "Успешно сохранено!")
         bot.register_next_step_handler(msg, application_check)
     except Exception as e:
         msg = bot.send_message(message.chat.id,
                                'Кажется, что-то пошло не так. Повторите попытку',
                                reply_markup=insuranceKeyboard)
+        print(e)
         bot.register_next_step_handler(msg, insurance_check)
 
 
@@ -458,6 +721,7 @@ def contract_check(message):
         msg = bot.send_message(message.chat.id,
                                'Кажется, что-то пошло не так. Повторите попытку.\n' + str(e),
                                reply_markup=contractKeyboard)
+        print(e)
         bot.register_next_step_handler(msg, contract_check)
 
 
