@@ -433,7 +433,7 @@ def about(message):
     else:
         if re.match('[\w\s\- .,]{' + str(len(message.text)) + '}', message.text) is None:
             msg = bot.send_message(message.chat.id, 'Введите корректные данные о вашем опыте')
-            bot.register_next_step_handler(msg, territory)
+            bot.register_next_step_handler(msg, about)
             return
         file = open("users/" + str(message.chat.id) + '/Анкета.txt', 'a')
         file.write("Опыт волонтёрских работ" + str(message.text) + '\n')
